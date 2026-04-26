@@ -9,9 +9,10 @@
     * 惡意目標 (Malicious Payload)：攻擊者希望 LLM 輸出的錯誤資訊或惡意行為。
     * 背景文本庫 (Corpus)：正常的文件樣本，用於模仿風格與提取關鍵字。
 * **處理單元 (Process)**：
-    * **Attacker LLM（以 7B 量化版為主）**：利用迭代提示詞 (Iterative Prompting) 生成包含惡意指令的文本。
+    * **Attacker LLM**：透過 Ollama 接口呼叫，模型名稱由 `configs/*.yaml` 的 `attacker_model` 欄位指定。利用迭代提示詞 (Iterative Prompting) 生成包含惡意指令的文本。
     * **語意優化 (Semantic Optimization)**：確保生成的文本包含與「目標問題」高度相關的詞彙，以提高後續在向量空間中的相似度。
 * **輸出 (Output)**：中毒文本區塊 (Poisoned Chunks)。
+* **執行約束**：Phase 1 需對所有目標查詢**批次完成全部生成**後再進入 Phase 2，Attacker 模型才從 VRAM 卸載。不可在單筆 query 迴圈內與 Target / Judge 交替呼叫。
 
 ## Phase 2: 注入與索引模組 (Data Injection & Indexing)
 **目標**：將中毒文本無縫混入目標系統的知識庫中。
@@ -42,7 +43,8 @@
 **目標**：檢驗目標系統是否成功抵禦攻擊，或產生惡意輸出。
 * **輸入 (Input)**：目標問題、經過 Phase 4 清洗的安全上下文。
 * **處理單元 (Process)**：
-    * **Target LLM**：依據上下文生成最終答案；理論上限以 Qwen 3 32B 為準，若成本受限可降級為更小模型。
-    * **Judge LLM**：評估 Target LLM 的輸出是否包含了 Phase 1 設定的「惡意目標」，實作上以 7B 驗證模型、雲端 API 或人工標註作為替代方案。
+    * **Target LLM**：透過 Ollama 接口呼叫，模型名稱由 `target_model` config 指定；依據上下文生成最終答案。理論上限以 Qwen 3 32B 為準，若資源受限可降級為更小模型。
+    * **Judge LLM**：透過 Ollama 接口呼叫，模型名稱由 `judge_model` config 指定（建議與 `attacker_model` 設為同一模型以省去換載）；評估 Target LLM 的輸出是否包含了 Phase 1 設定的「惡意目標」。
 * **輸出 (Output)**：攻擊是否成功的二元判定 (True/False)。
 * **紀錄指標**：攻擊成功率 (Attack Success Rate, ASR) — 目標模型實際執行惡意指令的機率。
+* **執行約束**：Target 與 Judge 須**分兩批串行**執行（先對所有 query 批次生成回答，再批次評估），不可在同一 query 迴圈內交替呼叫 Target 與 Judge，以避免 Ollama 頻繁換載。

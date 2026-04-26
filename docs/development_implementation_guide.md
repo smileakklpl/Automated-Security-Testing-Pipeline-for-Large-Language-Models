@@ -8,6 +8,91 @@
 
 ---
 
+## 0. 核心工程策略：Ollama 統一接口 + 批次執行（已採用）
+
+### 0.1 以 Ollama 作為統一 LLM 接口
+
+本專案採用 **Ollama** 作為所有 LLM 推論的統一接口，程式碼中不硬編碼任何具體模型名稱。好處如下：
+
+- 模型選擇完全由 `configs/*.yaml` 控制，切換模型只需改 yaml，不改程式碼。
+- Ollama 提供統一 REST API（`http://localhost:11434`），底層模型隨時可替換。
+- 不依賴 LangChain / LlamaIndex 等重型框架也可直接運作，降低環境複雜度。
+
+**LLMClient 接口規範**（所有 Phase 共用同一個類別）：
+
+```python
+# src/llm_client.py
+import ollama
+
+class LLMClient:
+    def __init__(self, model: str):
+        self.model = model  # 由 config 傳入，例如 "qwen3:7b"
+
+    def generate(self, prompt: str, system: str = "") -> str:
+        response = ollama.chat(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user",   "content": prompt},
+            ]
+        )
+        return response["message"]["content"]
+```
+
+**Config 結構**（各角色模型分離，統一由 yaml 管理）：
+
+```yaml
+# configs/experiment_01.yaml
+attacker_model:  "qwen3:7b"
+target_model:    "qwen3:14b"
+judge_model:     "qwen3:7b"    # 與 attacker 相同時，Ollama 無需重新換載
+embedding_model: "bge-m3"
+top_k: [3, 5, 10]
+poison_ratio: [0.01, 0.05, 0.10]
+seed: 42
+```
+
+Phase 1 使用 `LLMClient(config.attacker_model)`，Phase 5 使用 `LLMClient(config.target_model)`，換模型只改 yaml，框架不動。
+
+---
+
+### 0.2 VRAM 資源限制解法：批次執行（Attacker 與 Target 不需同時運行）
+
+**常見疑問**：「同時執行 Attacker 和 Target 會不會爆顯存？」— **不會，因為兩者根本不需要同時運行。**
+
+Pipeline 各階段的時序是**嚴格串行**的：
+
+```
+Phase 1（Attacker 批次生成全部 poison chunks）  → 完成後 Attacker 卸載
+Phase 2（Embedding + 向量庫注入）               → 無需 LLM
+Phase 3（批次檢索，記錄 RSR）                   → 無需 LLM
+Phase 4（XGBoost 防禦分類）                     → 無需 LLM
+Phase 5（Target 批次生成全部回答）               → Attacker 早已結束
+         Judge 批次評估全部結果                  → 與 Target 分開執行
+```
+
+Ollama 預設只在 VRAM 中保留一個模型，切換時自動 unload 前一個（約 10–30 秒換載時間）。只要維持批次模式，整個實驗最多換載 2 次（Attacker→Target、Target→Judge），不構成顯存壓力。
+
+**批次執行模式（必須遵守）**：
+
+```python
+# ✅ 正確：每個模型角色批次完成，再換下一個
+all_poison_chunks = [attacker.generate(q) for q in queries]  # Phase 1 全批完成
+# Phase 2、3、4 無需 LLM
+all_answers    = [target.generate(q) for q in queries]        # Phase 5 全批完成
+all_judgements = [judge.evaluate(a)  for a in all_answers]    # Judge 全批完成
+
+# ❌ 錯誤：per-query 交替呼叫，每筆 query 換 3 次模型 → 極慢
+for query in queries:
+    attacker.generate(query)  # 載入 Attacker
+    target.generate(query)    # 卸載 Attacker，載入 Target
+    judge.evaluate(query)     # 卸載 Target，載入 Judge
+```
+
+**額外優化**：將 `judge_model` 設為與 `attacker_model` 相同（例如都是 `qwen3:7b`），Ollama 不需重新換載，整個實驗只換載**一次**（Attacker/Judge → Target）。
+
+---
+
 ## 1. 建議先完成的最小可行版本（MVP）
 
 建議先用 2 週完成以下成果，再逐步加強攻擊與防禦強度：
@@ -142,7 +227,7 @@
 ## 不建議一開始就本地硬跑的部分
 
 1. 超過 Qwen 3 32B 的更大主流模型不列入本專題規劃。
-2. 同時啟動 Attacker + Target + Judge 三個本地模型，容易爆顯存或造成評估極慢。
+2. 在單次 query 的迴圈內交替呼叫 Attacker / Target / Judge（應改為分階段批次完成，參見 §0.2）。Attacker 與 Target 本身不需同時在 VRAM 中，串行批次執行即可，Ollama 自動管理換載。
 3. 長 context（例如 8k~16k）會大幅拉高 KV cache 記憶體需求，先用 2k~4k 驗證流程。
 
 ## 建議模型角色分工

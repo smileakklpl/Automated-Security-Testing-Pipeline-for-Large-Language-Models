@@ -40,12 +40,14 @@
 * **追蹤指標**：攻擊成功率 (Attack Success Rate, ASR)。
 
 ## 4. 技術選型與預期環境 (Tech Stack)
-* **基礎框架**：LangChain 或 LlamaIndex。
+* **LLM 推論接口**：**Ollama**（統一接口，所有模型角色透過同一 `LLMClient` 呼叫，模型名稱由 `configs/*.yaml` 控制，不寫死在程式碼中）。
+* **基礎框架**：以 Ollama Python 套件 + 原生向量庫 API 直接串接為主；不依賴 LangChain / LlamaIndex 等重型框架，降低環境複雜度。
 * **向量資料庫 (Vector DB)**：ChromaDB, FAISS 或 Qdrant（以易於本地部署為主）。
-* **語言模型 (LLMs)**：
-    * Attacker: 本地端 7B 量化模型。
-    * Target: 本地端模型以 Qwen 3 32B 為理論上限，優先採量化推論；若資源不足，降級為更小模型。
-    * Judge / Evaluator: 以 7B 驗證模型、人工標註或輕量規則判定。
+* **語言模型 (LLMs)**：具體模型名稱由 config 決定，角色分工如下：
+    * `attacker_model`：預設 7B 量化模型，負責 Phase 1 poison chunk 生成。
+    * `target_model`：預設 14B 量化模型，理論上限 Qwen 3 32B；負責 Phase 5 回答生成。
+    * `judge_model`：建議與 `attacker_model` 設為同一模型（例如同為 7B），可省去 Ollama 換載開銷；負責 Phase 5 攻擊成效評估。
+    * 三個角色採**批次串行**執行，Ollama 自動管理 VRAM 換載，不需同時載入多個模型。
 * **防禦分類器**：Scikit-learn, XGBoost。
 
 ## 5. 當前開發目標 (Current Development Goal)
