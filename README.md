@@ -4,14 +4,20 @@ Automated Security Testing Pipeline for Large Language Models Based on Iterative
 
 本專案目前以「自動化 RAG 攻擊測試流程」為核心，實作範圍以驗證性實驗為主，不以大型主流模型訓練或完整部署為目標。硬體條件下，本地推論上限以 Qwen 3 32B 為準，其餘模型僅作輕量或替代性實驗參考。
 
-## 文件用途
+## 文件結構
 
-這個倉庫主要是研究與實作說明文件的彙整入口，用來定義專題的研究邊界、系統流程與文獻依據。現有文件分工如下：
+```
+docs/
+├── project_background.md          # 專題背景、研究轉向、文獻綜述、技術選型、指標定義
+├── development_implementation_guide.md  # 實作落地指南：程式結構、硬體配置、開發順序
+├── phase1_attack_generation.md    # 攻擊生成模組：三種攻擊類型、Prompt 架構、Metadata 規範
+├── phase2_injection_indexing.md   # 注入索引模組：Chunking 規則、Embedding 選型、向量庫規範
+├── phase3_trigger_retrieval.md    # 觸發檢索模組：RSR 計算、Top-K 實驗組、查詢集分割
+├── phase4_defense.md              # 防禦攔截模組：特徵萃取、XGBoost 分類器、Fallback 機制
+└── phase5_generation_evaluation.md # 生成評估模組：ASR 計算、Judge Prompt 設計、批次執行約束
+```
 
-- [docs/project_context.md](docs/project_context.md)：說明專題背景、研究轉向、五階段管線與當前開發目標。
-- [docs/method.md](docs/method.md)：說明 RAG 攻擊生成、注入、檢索、防禦與評估的流程設計。
-- [docs/reference_analysis.md](docs/reference_analysis.md)：整理支撐本專題的攻擊與防禦相關文獻定義。
-- [docs/development_implementation_guide.md](docs/development_implementation_guide.md)：提供實作建議、硬體限制下的模型配置與開發順序。
+閱讀建議：先看 `project_background.md` 了解研究背景與整體架構，再查閱對應 `phase*.md` 的實作細節，硬體與工程策略請見 `development_implementation_guide.md`。
 
 ## 專案定位
 
