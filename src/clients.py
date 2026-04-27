@@ -12,7 +12,7 @@ class LLMClient:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
         response = ollama.chat(model=self.model, messages=messages)
-        return response["message"]["content"]
+        return response.message.content
 
 
 class EmbeddingClient:
@@ -20,8 +20,8 @@ class EmbeddingClient:
         self.model = model
 
     def embed(self, text: str) -> np.ndarray:
-        response = ollama.embeddings(model=self.model, prompt=text)
-        return np.array(response["embedding"], dtype=np.float32)
+        response = ollama.embed(model=self.model, input=text)
+        return np.array(response.embeddings[0], dtype=np.float32)
 
     def cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
         denom = np.linalg.norm(a) * np.linalg.norm(b)

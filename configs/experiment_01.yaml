@@ -1,6 +1,6 @@
-attacker_model:  "qwen3:7b"
-target_model:    "qwen3:32b"
-judge_model:     "qwen3:7b"
+attacker_model:  "gemma4:e4b"
+target_model:    "gemma4:31b"
+judge_model:     "gemma4:e4b"
 embedding_model: "bge-m3"
 
 top_k: [3, 5, 10]
