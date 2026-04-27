@@ -1,0 +1,32 @@
+[project]
+name = "rag-security-pipeline"
+version = "0.1.0"
+description = "Automated Security Testing Pipeline for Large Language Models via RAG Data Poisoning"
+requires-python = ">=3.10"
+dependencies = [
+    # Core inference
+    "numpy>=1.26",
+    "ollama>=0.4",
+    "pyyaml>=6.0",
+    # Phase 2: vector DB + chunking
+    "chromadb>=0.5",
+    "faiss-cpu>=1.8",
+    "tiktoken>=0.7",
+    # Phase 4: ML defense classifier
+    "xgboost>=2.0",
+    "scikit-learn>=1.4",
+    # Utilities
+    "tqdm>=4.66",
+    "pandas>=2.1",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
