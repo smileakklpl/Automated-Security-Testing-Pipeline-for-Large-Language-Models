@@ -2,11 +2,12 @@
 
 ## 1. 專題定位
 
-**專題名稱**：RAG 系統自動化安全性測試管線  
+**專題名稱**：RAG 知識庫資料中毒：攻擊與防禦評估  
+**英文名稱**：RAG Knowledge Base Poisoning: Attack & Defense Evaluation  
 **專題性質**：資料科學與機器學習期末專題  
-**實作性質**：驗證性實作（Proof-of-Concept），不以大型主流模型的完整訓練或高成本多模型部署為目標。
+**實作性質**：驗證性實作（Proof-of-Concept），聚焦於 RAG 系統的資料中毒攻擊與防禦機制評估。
 
-受限於經費與硬體條件（5070 Ti + 32GB RAM），Qwen3 32B 只作為 Target Model 的理論上限，Attacker 與 Judge 模型以 7B 級量化版為主。
+受限於經費與硬體條件（RTX 5070 Ti + 32GB RAM），使用 Gemma4 系列模型進行本地推論驗證。
 
 ---
 

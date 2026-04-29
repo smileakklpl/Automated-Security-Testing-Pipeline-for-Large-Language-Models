@@ -1,5 +1,5 @@
-# 大型語言模型自動化安全測試管線
-## Automated Security Testing Pipeline for Large Language Models
+# RAG 知識庫資料中毒：攻擊與防禦評估
+## RAG Knowledge Base Poisoning: Attack & Defense Evaluation
 
 基於迭代對抗的 RAG 資料中毒攻擊測試流程
 
@@ -94,23 +94,21 @@ src/
 ├── config.py                       # ExperimentConfig 配置類
 ├── clients.py                      # LLMClient、EmbeddingClient（Ollama 0.4+ API）
 ├── base.py                         # BaseEvaluator、EvalResult 基類
-├── pipeline/
-│   ├── phase1.py                   # 攻擊生成：GeneratorAgent + 三個評估器
-│   ├── phase2.py                   # [待實作] 資料注入 & 向量索引
-│   ├── phase3.py                   # [待實作] 檢索 + RSR 量測
-│   ├── phase4.py                   # [待實作] 防禦檢測（XGBoost）
-│   └── phase5.py                   # [待實作] 目標 LLM + 評判者評估
-├── prompts/
-│   ├── hijack.md                   # 攻擊提示詞：覆寫風格
-│   ├── blocker.md                  # 攻擊提示詞：拒答觸發
-│   └── stealth.md                  # 攻擊提示詞：隱蔽嵌入
+└── pipeline/
+    ├── __init__.py
+    └── phase1.py                   # ✅ 攻擊生成：GeneratorAgent + 三個評估器
 
 smoke_test.py                       # Phase 1 快速測試（1 筆查詢、1 輪迭代）
 
 docs/
 ├── project_background.md           # 研究背景、文獻綜述、技術選型
 ├── development_implementation_guide.md  # 工程策略、硬體配置、開發順序
-└── phase{1-5}_*.md                 # 各階段詳細規範
+├── experiment_flow_diagram.md      # 實驗流程與指標關係圖
+├── phase1_attack_generation.md     # Phase 1 詳細規範：三種攻擊類型生成
+├── phase2_injection_indexing.md    # Phase 2 規劃：語料分塊、向量化、資料庫注入
+├── phase3_trigger_retrieval.md     # Phase 3 規劃：檢索驗證、RSR 量測
+├── phase4_defense.md               # Phase 4 規劃：特徵提取、XGBoost 防禦
+└── phase5_generation_evaluation.md # Phase 5 規劃：目標 LLM、評判者、ASR 計算
 ```
 
 ---
@@ -139,16 +137,60 @@ docs/
 ## 📖 詳細文件
 
 詳見 `docs/` 目錄：
-- `project_background.md` — 研究背景與整體架構
-- `development_implementation_guide.md` — 工程策略與硬體配置建議
-- `phase*_*.md` — 各階段詳細實作規範
+- **`project_background.md`** — 研究背景、文獻綜述、技術選型理由
+- **`development_implementation_guide.md`** — 工程策略、硬體配置、開發優先級建議
+- **`experiment_flow_diagram.md`** — 實驗流程視覺化、指標間關係、評估邏輯
+- **`phase1_attack_generation.md`** — Phase 1 詳細規範（已實作）
+- **`phase2_injection_indexing.md`** — Phase 2 規劃：語料處理與索引
+- **`phase3_trigger_retrieval.md`** — Phase 3 規劃：檢索驗證與 RSR 量測
+- **`phase4_defense.md`** — Phase 4 規劃：防禦機制（特徵萃取、XGBoost、DBR/CDR）
+- **`phase5_generation_evaluation.md`** — Phase 5 規劃：LLM 生成與攻擊評估
+
+## 🛣️ 下一步（Phase 2 開發建議）
+
+1. **載入與清洗 CUAD 語料**
+   - 讀取 CUAD 資料集（510 份合約）
+   - 分塊處理（建議 512 token 窗口，256 token 步長）
+
+2. **向量化與索引**
+   - 使用 `bge-m3` 向量化文本
+   - 建構 ChromaDB 向量資料庫
+   - 為 Phase 1 輸出的中毒文本注入 metadata：`is_poison=True`
+
+3. **測試檢索效果**
+   - 驗證中毒文本的可檢索性（RSR）
+   - 調整分塊大小、步長等參數
+
+詳見 `docs/phase2_injection_indexing.md` 的實作規範。
 
 ---
 
 ## ✅ 開發進度
 
+### 已完成
 - [x] **Phase 1** — 攻擊文本生成（含迭代最佳化）
+  - GeneratorAgent（使用 LLM 生成候選中毒文本）
+  - 三種攻擊類型評估器（Hijack、Blocker、Stealth）
+  - 自動迭代改進機制
+  - 煙霧測試工具 `smoke_test.py`
+
+### 進行中 / 規劃中
 - [ ] **Phase 2** — 資料注入與向量索引
+  - CUAD 語料庫分塊與清洗
+  - bge-m3 向量化
+  - ChromaDB 索引構建（含 `is_poison` 元資料）
+  
 - [ ] **Phase 3** — 觸發檢索與 RSR 量測
-- [ ] **Phase 4** — 防禦檢測（XGBoost）
+  - 查詢觸發機制（基於 `trigger_keywords`）
+  - 檢索評估（命中率、排序位置、RSR 計算）
+  
+- [ ] **Phase 4** — 防禦檢測（特徵 + XGBoost）
+  - PPL（困惑度）、語意跳躍等特徵萃取
+  - Rule-Based 基準過濾
+  - XGBoost 分類器訓練與評估
+  - DBR / CDR 指標計算
+  
 - [ ] **Phase 5** — 評估與 ASR 計算
+  - 目標 LLM 生成回答（含 / 無防禦）
+  - 評判者 LLM 評估攻擊成功
+  - ASR、防禦有效性分析
